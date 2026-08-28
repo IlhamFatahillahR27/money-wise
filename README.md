@@ -1,50 +1,108 @@
-# Welcome to your Expo app 👋
+# 💰 MoneyWise
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Aplikasi mobile pencatatan dan analisis pengeluaran pribadi modern dengan arsitektur **Local-First (Offline-First)**, **Dynamic Custom Fields**, **Auto-Create Category**, **Mesin Komparasi Head-to-Head**, **Dashboard Finansial Periodik**, dan **Ekspor Excel (.xlsx)**.
 
-## Get started
+Dibangun menggunakan **Expo SDK 54**, **React Native 0.81**, **React Native Paper v5**, **Expo Router v6**, dan basis data lokal **SQLite (`expo-sqlite`)**.
 
-1. Install dependencies
+---
 
-   ```bash
-   npm install
-   ```
+## ✨ Fitur Utama
 
-2. Start the app
+### 1. 🗄️ Penyimpanan 100% Offline (Local-First)
+- Seluruh data transaksi, rincian item, dan kategori tersimpan secara lokal di memori ponsel menggunakan **SQLite** (`expo-sqlite`) dengan konfigurasi performa `WAL (Write-Ahead Logging)` mode.
+- Aplikasi dapat digunakan kapan saja tanpa memerlukan koneksi internet.
 
-   ```bash
-   npx expo start
-   ```
+### 2. 📝 Dynamic Custom Fields (Rincian Item Fleksibel)
+- Setiap transaksi pengeluaran tidak hanya mencatat nominal total, tetapi dapat ditambahkan rincian item kustom tak terbatas.
+- **Contoh Kasus**:
+  - Pengeluaran: **"Kos Bulanan"**
+  - Rincian Custom Field:
+    - `kWh Digunakan`: `145` (Satuan: `kWh`, Tipe: Angka)
+    - `Biaya Listrik`: `Rp 217.500` (Tipe: Rupiah)
+    - `Biaya Kamar Kos`: `Rp 1.200.000` (Tipe: Rupiah)
+- Tombol **"Hitung dari Rincian"** untuk menjumlahkan sub-rincian Rupiah secara otomatis ke total pengeluaran.
 
-In the output, you'll find options to open the app in a
+### 3. 🏷️ Inline Auto-Create Kategori Baru
+- Kolom kategori dilengkapi pencarian teks cerdas.
+- Jika nama kategori yang diketik belum pernah terdaftar di database, tombol **`+ Buat kategori baru: "{nama}"`** akan langsung muncul sehingga kategori baru otomatis tersimpan tanpa perlu berpindah layar.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+### 4. 💡 Auto-Template dari Riwayat
+- Saat mengetik judul pengeluaran yang pernah dicatat sebelumnya (misal: *"Kos Bulanan"*), sistem mendeteksi pencatatan terakhir dan menawarkan banner:
+  > *"Ditemukan catatan sebelumnya: Gunakan rincian field ini?"*
+- Mengisi otomatis seluruh struktur field dan nilai sebelumnya sebagai referensi harga, sehingga Anda tidak perlu mengetik ulang nama-nama field tiap bulan.
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+### 5. 🔢 Format Pemisah Ribuan Titik & Live Terbilang
+- Kolom nominal total dan rincian Rupiah otomatis memformat angka dengan pemisah titik ribuan saat diketik (contoh: `1500000` ➔ `1.500.000`).
+- Dilengkapi teks konfirmasi terbilang interaktif langsung di bawah input (contoh: `💰 Terbaca: Rp 1.500.000 (1,5 Juta)` atau `Rp 50.000 (50 Ribu)`), mencegah kesalahan pengetikan jumlah nol.
 
-## Get a fresh project
+### 6. 🔍 Analisis Komparasi Head-to-Head (Price & Usage Tracking)
+- Secara otomatis mendeteksi transaksi serupa sebelumnya untuk dibandingkan pada halaman detail transaksi.
+- **Komparasi Global**: Perubahan total pengeluaran (kenaikan/penurunan nominal dan persentase).
+- **Komparasi Rincian Per-Field**:
+  - Mengetahui apakah penggunaan listrik naik: `120 kWh ➔ 145 kWh (+25 kWh / +20.8% 📈)`
+  - Mengetahui fluktuasi tarif: `Rp 180.000 ➔ Rp 217.500 (+Rp 37.500 📈)`
+  - Indikator warna visual: **Merah** (pengeluaran/pemakaian naik), **Hijau** (hemat/turun), dan **Abu-abu** (tetap).
 
-When you're ready, run:
+### 7. 📊 Dashboard Finansial Periodik
+- Filter rentang waktu: **7 Hari Terakhir**, **Bulan Ini**, **Tahun Ini**, dan **Semua Waktu**.
+- Kartu metrik: Total Pengeluaran, Rata-rata Harian, Pengeluaran Terbesar, dan Jumlah Transaksi.
+- Visualisasi progress bar distribusi pengeluaran per kategori.
+- Ringkasan 5 pengeluaran terkini dengan shortcut cepat.
 
+### 8. 📋 Riwayat Transaksi Lengkap
+- Layar riwayat dengan kolom pencarian instan (*Search Bar*) berdasarkan judul atau catatan.
+- Filter horizontal chips berdasarkan kategori.
+- Tampilan total pengeluaran terfilter secara dinamis.
+
+### 9. 📑 Ekspor ke Excel (.xlsx) Offline
+- Mengonversi data transaksi beserta seluruh rincian custom fields ke file spreadsheet Excel (`.xlsx`) secara offline menggunakan SheetJS (`xlsx`) dan `expo-file-system`.
+- Membuka native share sheet ponsel (`expo-sharing`) untuk disimpan ke folder ponsel (*Save to Files*) atau dikirim via WhatsApp, Google Drive, dan Email.
+
+### 10. ☁️ Arsitektur Siap Sinkronisasi Cloud (Cloud-Ready)
+- Skema database lokal telah dilengkapi kolom sinkronisasi (`is_synced`, `synced_at`, `updated_at`, `is_deleted`).
+- Halaman **Pengaturan & Cloud** menyediakan input `Cloud Base URL` dan tombol *"Sinkronkan Sekarang"* yang siap dihubungkan saat backend API pribadi Anda telah aktif.
+
+---
+
+## 🛠️ Teknologi yang Digunakan
+
+| Komponen | Teknologi |
+| :--- | :--- |
+| **Framework** | [Expo SDK 54](https://docs.expo.dev/versions/v54.0.0/) (React Native 0.81.5) |
+| **Routing** | [Expo Router v6](https://docs.expo.dev/router/introduction/) (File-based Routing) |
+| **UI Components** | [React Native Paper v5](https://callstack.github.io/react-native-paper/) (Material Design 3) |
+| **Database** | [expo-sqlite](https://docs.expo.dev/versions/v54.0.0/sdk/sqlite/) (SQLite lokal dengan WAL mode) |
+| **Excel Export** | [SheetJS (xlsx)](https://docs.sheetjs.com/), `expo-file-system/legacy`, `expo-sharing` |
+| **Animation** | `react-native-reanimated` |
+| **Language** | TypeScript (~5.9.2) |
+
+---
+
+## 🚀 Memulai Aplikasi (Getting Started)
+
+### 1. Prasyarat
+- Pastikan telah menginstal [Node.js](https://nodejs.org/) (versi LTS yang disarankan).
+- Instal aplikasi **Expo Go** pada ponsel Android/iOS Anda melalui Play Store atau App Store.
+
+### 2. Instalasi Dependensi
+Jalankan perintah berikut di direktori proyek:
 ```bash
-npm run reset-project
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### 3. Menjalankan Server Development
+```bash
+npx expo start
+```
 
-## Learn more
+Pilihan kontrol di terminal:
+- **Scan QR Code** menggunakan kamera (iOS) atau aplikasi Expo Go (Android).
+- Tekan **`a`** untuk membuka pada Android Emulator.
+- Tekan **`w`** untuk membuka pada browser Web.
+- Tekan **`r`** untuk me-reload aplikasi.
+- Tekan **`c`** untuk membersihkan cache Metro bundler jika diperlukan.
 
-To learn more about developing your project with Expo, look at the following resources:
+---
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## 📄 Lisensi
+Proyek pribadi untuk pencatatan dan pengelolaan keuangan mandiri.

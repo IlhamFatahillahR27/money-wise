@@ -1,112 +1,257 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import {
+  StyleSheet,
+  View,
+  FlatList,
+  RefreshControl,
+  ScrollView,
+  Alert,
+} from 'react-native';
+import {
+  Searchbar,
+  Chip,
+  Text,
+  useTheme,
+  ActivityIndicator,
+  Appbar,
+  Card,
+  Button,
+} from 'react-native-paper';
+import { router, useFocusEffect } from 'expo-router';
+import { Category, ExpenseWithDetails } from '@/types/expense';
+import { ExpenseRepository } from '@/services/db/expense-repository';
+import { CategoryRepository } from '@/services/db/category-repository';
+import { CloudSyncService } from '@/services/cloud/cloud-sync-service';
+import { ExpenseCard } from '@/components/expense/expense-card';
+import { ExcelExportService } from '@/services/export/excel-export';
+import { formatRupiah } from '@/utils/currency';
 
-import { Collapsible } from '@/components/ui/collapsible';
-import { ExternalLink } from '@/components/external-link';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Fonts } from '@/constants/theme';
+export default function ExploreScreen() {
+  const theme = useTheme();
 
-export default function TabTwoScreen() {
+  const [expenses, setExpenses] = useState<ExpenseWithDetails[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [cloudSyncing, setCloudSyncing] = useState(false);
+
+  useEffect(() => {
+    CategoryRepository.getAllCategories()
+      .then(setCategories)
+      .catch((err) => console.error('Gagal memuat kategori:', err));
+  }, []);
+
+  const loadExpenses = useCallback(async (isRefresh = false) => {
+    try {
+      // 1. Muat dari SQLite lokal terlebih dahulu
+      const data = await ExpenseRepository.getExpenses({
+        categoryId: selectedCategoryId || undefined,
+        searchQuery: searchQuery || undefined,
+      });
+      setExpenses(data);
+
+      // 2. Jika di-refresh atau data lokal kosong, dan terhubung cloud
+      const config = await CloudSyncService.getConfig();
+      if (config.cloud_base_url && (isRefresh || data.length === 0)) {
+        setCloudSyncing(true);
+        const syncRes = await CloudSyncService.sync();
+        if (syncRes.success) {
+          const refreshed = await ExpenseRepository.getExpenses({
+            categoryId: selectedCategoryId || undefined,
+            searchQuery: searchQuery || undefined,
+          });
+          setExpenses(refreshed);
+          const catList = await CategoryRepository.getAllCategories();
+          setCategories(catList);
+        }
+      }
+    } catch (error) {
+      console.error('Gagal mengambil data pengeluaran:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+      setCloudSyncing(false);
+    }
+  }, [selectedCategoryId, searchQuery]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadExpenses(false);
+    }, [loadExpenses])
+  );
+
+  function handleRefresh() {
+    setRefreshing(true);
+    loadExpenses(true);
+  }
+
+  async function handleExportExcel() {
+    if (expenses.length === 0) {
+      Alert.alert('Data Kosong', 'Tidak ada data pengeluaran yang dapat diekspor.');
+      return;
+    }
+    try {
+      await ExcelExportService.exportToExcel(expenses);
+    } catch (error: any) {
+      Alert.alert('Gagal Ekspor', error.message || 'Terjadi kesalahan saat membuat file Excel.');
+    }
+  }
+
+  const totalFilteredAmount = expenses.reduce((acc, curr) => acc + curr.total_amount, 0);
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
-      headerImage={
-        <IconSymbol
-          size={310}
-          color="#808080"
-          name="chevron.left.forwardslash.chevron.right"
-          style={styles.headerImage}
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      {/* Header Halaman */}
+      <Appbar.Header elevated style={{ backgroundColor: theme.colors.surface }}>
+        <Appbar.Content
+          title="Riwayat Pengeluaran"
+          subtitle={`${expenses.length} transaksi (${formatRupiah(totalFilteredAmount)})`}
+          titleStyle={{ fontWeight: '800' }}
         />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText
-          type="title"
-          style={{
-            fontFamily: Fonts.rounded,
-          }}>
-          Explore
-        </ThemedText>
-      </ThemedView>
-      <ThemedText>This app includes example code to help you get started.</ThemedText>
-      <Collapsible title="File-based routing">
-        <ThemedText>
-          This app has two screens:{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/explore.tsx</ThemedText>
-        </ThemedText>
-        <ThemedText>
-          The layout file in <ThemedText type="defaultSemiBold">app/(tabs)/_layout.tsx</ThemedText>{' '}
-          sets up the tab navigator.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/router/introduction">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Android, iOS, and web support">
-        <ThemedText>
-          You can open this project on Android, iOS, and the web. To open the web version, press{' '}
-          <ThemedText type="defaultSemiBold">w</ThemedText> in the terminal running this project.
-        </ThemedText>
-      </Collapsible>
-      <Collapsible title="Images">
-        <ThemedText>
-          For static images, you can use the <ThemedText type="defaultSemiBold">@2x</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">@3x</ThemedText> suffixes to provide files for
-          different screen densities
-        </ThemedText>
-        <Image
-          source={require('@/assets/images/react-logo.png')}
-          style={{ width: 100, height: 100, alignSelf: 'center' }}
+        <Appbar.Action icon="file-excel-box" onPress={handleExportExcel} />
+        <Appbar.Action icon="plus-circle" onPress={() => router.push('/modal')} />
+      </Appbar.Header>
+
+      {/* Banner Sinkronisasi Cloud */}
+      {cloudSyncing && (
+        <View style={[styles.cloudBanner, { backgroundColor: theme.colors.surfaceVariant }]}>
+          <ActivityIndicator size="small" color={theme.colors.primary} />
+          <Text variant="labelSmall" style={{ marginLeft: 8, color: theme.colors.primary, fontWeight: '700' }}>
+            Memperbarui data dari cloud...
+          </Text>
+        </View>
+      )}
+
+      {/* Search Bar */}
+      <View style={styles.searchContainer}>
+        <Searchbar
+          placeholder="Cari judul pengeluaran atau catatan..."
+          onChangeText={setSearchQuery}
+          value={searchQuery}
+          elevation={1}
+          style={styles.searchBar}
         />
-        <ExternalLink href="https://reactnative.dev/docs/images">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Light and dark mode components">
-        <ThemedText>
-          This template has light and dark mode support. The{' '}
-          <ThemedText type="defaultSemiBold">useColorScheme()</ThemedText> hook lets you inspect
-          what the user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Animations">
-        <ThemedText>
-          This template includes an example of an animated component. The{' '}
-          <ThemedText type="defaultSemiBold">components/HelloWave.tsx</ThemedText> component uses
-          the powerful{' '}
-          <ThemedText type="defaultSemiBold" style={{ fontFamily: Fonts.mono }}>
-            react-native-reanimated
-          </ThemedText>{' '}
-          library to create a waving hand animation.
-        </ThemedText>
-        {Platform.select({
-          ios: (
-            <ThemedText>
-              The <ThemedText type="defaultSemiBold">components/ParallaxScrollView.tsx</ThemedText>{' '}
-              component provides a parallax effect for the header image.
-            </ThemedText>
-          ),
-        })}
-      </Collapsible>
-    </ParallaxScrollView>
+      </View>
+
+      {/* Filter Kategori Horizontal Chips */}
+      <View style={styles.filterSection}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+          <Chip
+            selected={selectedCategoryId === null}
+            onPress={() => setSelectedCategoryId(null)}
+            style={styles.chip}>
+            Semua Kategori
+          </Chip>
+          {categories.map((cat) => {
+            const isSelected = selectedCategoryId === cat.id;
+            return (
+              <Chip
+                key={cat.id}
+                selected={isSelected}
+                onPress={() => setSelectedCategoryId(isSelected ? null : cat.id)}
+                icon={cat.icon || 'tag-outline'}
+                style={[
+                  styles.chip,
+                  isSelected && { backgroundColor: cat.color + '25', borderColor: cat.color },
+                ]}
+                textStyle={isSelected ? { color: cat.color, fontWeight: '700' } : undefined}>
+                {cat.name}
+              </Chip>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {/* Daftar Pengeluaran */}
+      {loading ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" />
+        </View>
+      ) : (
+        <FlatList
+          data={expenses}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => <ExpenseCard expense={item} />}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          }
+          ListEmptyComponent={
+            <Card mode="outlined" style={styles.emptyCard}>
+              <Card.Content style={styles.emptyContent}>
+                <Text variant="titleMedium" style={{ fontWeight: '700', marginBottom: 4 }}>
+                  Tidak ada pengeluaran ditemukan
+                </Text>
+                <Text variant="bodyMedium" style={{ color: theme.colors.outline, textAlign: 'center' }}>
+                  {searchQuery || selectedCategoryId
+                    ? 'Coba ubah kata kunci pencarian atau filter kategori Anda.'
+                    : 'Mulai catat pengeluaran pertama Anda sekarang!'}
+                </Text>
+                <Button
+                  mode="contained"
+                  icon="plus"
+                  style={{ marginTop: 14 }}
+                  onPress={() => router.push('/modal')}>
+                  Catat Pengeluaran Baru
+                </Button>
+              </Card.Content>
+            </Card>
+          }
+        />
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  headerImage: {
-    color: '#808080',
-    bottom: -90,
-    left: -35,
-    position: 'absolute',
+  container: {
+    flex: 1,
   },
-  titleContainer: {
+  cloudBanner: {
     flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 8,
+  },
+  searchContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  searchBar: {
+    borderRadius: 12,
+  },
+  filterSection: {
+    paddingBottom: 8,
+  },
+  chipRow: {
+    paddingHorizontal: 16,
     gap: 8,
+  },
+  chip: {
+    borderRadius: 20,
+  },
+  listContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 40,
+    gap: 8,
+  },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyCard: {
+    marginTop: 30,
+    borderRadius: 14,
+  },
+  emptyContent: {
+    alignItems: 'center',
+    paddingVertical: 24,
   },
 });
