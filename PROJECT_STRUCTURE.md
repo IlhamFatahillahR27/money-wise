@@ -47,6 +47,7 @@ money-wise/
 │   │   ├── expense-card.tsx              # Expense summary card for lists
 │   │   └── expense-form.tsx              # Main expense form with auto-template & number formatting
 │   ├── ui/                               # Primitive and helper UI components
+│   │   ├── animated-splash-screen.tsx    # Smooth animated startup branding & loading splash screen
 │   │   ├── collapsible.tsx               # Animated accordion/collapsible component
 │   │   ├── icon-symbol.ios.tsx           # Native iOS SF Symbols icon wrapper
 │   │   └── icon-symbol.tsx               # Cross-platform MaterialIcons icon wrapper
