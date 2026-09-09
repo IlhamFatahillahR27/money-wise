@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { StyleSheet, View, ScrollView, Alert } from 'react-native';
 import {
   Text,
@@ -29,15 +29,8 @@ export default function ExpenseDetailScreen() {
   const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
-    if (id) {
-      loadExpenseDetail(id);
-    }
-  }, [id]);
-
-  async function loadExpenseDetail(expenseId: string) {
+  const loadExpenseDetail = useCallback(async (expenseId: string) => {
     try {
-      setLoading(true);
       const data = await ExpenseRepository.getExpenseById(expenseId);
       setExpense(data);
 
@@ -61,7 +54,13 @@ export default function ExpenseDetailScreen() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    if (id) {
+      loadExpenseDetail(id);
+    }
+  }, [id, loadExpenseDetail]);
 
   async function handleDeleteConfirm() {
     if (!expense) return;

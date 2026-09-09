@@ -1,6 +1,6 @@
 # 🌳 Project Structure: `money-wise`
 
-This document details the complete directory tree structure, file organization, and architectural layers of **MoneyWise** (a Local-First Personal Expense Tracking and Analysis mobile app) built using **Expo SDK 54**, **React Native 0.81**, **Expo Router v6**, **React Native Paper v5**, and **SQLite (`expo-sqlite`)**.
+This document details the complete directory tree structure, file organization, and architectural layers of **MoneyWise** (a Local-First Personal Expense Tracking and Analysis mobile app) built using **Expo SDK 57**, **React Native 0.86**, **Expo Router v57**, **React Native Paper v5**, and **SQLite (`expo-sqlite`)**.
 
 ---
 

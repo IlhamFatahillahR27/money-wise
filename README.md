@@ -2,7 +2,7 @@
 
 A modern personal expense tracking and financial analysis mobile application built with **Local-First (Offline-First)** architecture, **Dynamic Custom Fields**, **Inline Auto-Create Category**, **Head-to-Head Comparison Engine**, **Periodic Financial Dashboard**, and **Offline Excel Export (.xlsx)**.
 
-Built with **Expo SDK 54**, **React Native 0.81**, **React Native Paper v5**, **Expo Router v6**, and local **SQLite (`expo-sqlite`)** storage.
+Built with **Expo SDK 57**, **React Native 0.86**, **React Native Paper v5**, **Expo Router v57**, and local **SQLite (`expo-sqlite`)** storage.
 
 ---
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { StyleSheet, View, ScrollView, Alert } from 'react-native';
 import {
   Text,
@@ -6,7 +6,6 @@ import {
   Button,
   Card,
   useTheme,
-  Divider,
   List,
   ActivityIndicator,
   Snackbar,
@@ -16,7 +15,6 @@ import { ExpenseRepository } from '@/services/db/expense-repository';
 import { ExcelExportService } from '@/services/export/excel-export';
 import { CloudSyncService } from '@/services/cloud/cloud-sync-service';
 import { RetentionPeriod } from '@/types/expense';
-import { formatTanggalIndo } from '@/utils/currency';
 
 export default function SettingsScreen() {
   const theme = useTheme();
@@ -24,7 +22,7 @@ export default function SettingsScreen() {
   const [cloudUrl, setCloudUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [retentionPeriod, setRetentionPeriod] = useState<RetentionPeriod>('1_year');
-  const [lastSyncedAt, setLastSyncedAt] = useState<number>(0);
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -34,13 +32,8 @@ export default function SettingsScreen() {
   const [exporting, setExporting] = useState(false);
   const [msg, setMsg] = useState('');
 
-  useEffect(() => {
-    loadSettings();
-  }, []);
-
-  async function loadSettings() {
+  const loadSettings = useCallback(async () => {
     try {
-      setLoading(true);
       const config = await CloudSyncService.getConfig();
       setCloudUrl(config.cloud_base_url);
       setApiKey(config.cloud_api_key);
@@ -51,7 +44,11 @@ export default function SettingsScreen() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
 
   async function handleSaveSettings() {
     try {
@@ -265,9 +262,9 @@ export default function SettingsScreen() {
             left={<TextInput.Icon icon="key" />}
           />
 
-          {lastSyncedAt > 0 && (
+          {Boolean(lastSyncedAt && lastSyncedAt > 0) && (
             <Text variant="labelSmall" style={{ color: '#2E7D32', marginBottom: 10, fontWeight: '600' }}>
-              ✓ Terakhir disinkronkan: {new Date(lastSyncedAt).toLocaleString('id-ID')}
+              ✓ Terakhir disinkronkan: {new Date(lastSyncedAt!).toLocaleString('id-ID')}
             </Text>
           )}
 
