@@ -17,7 +17,7 @@ import { ExpenseComparison, ExpenseWithDetails } from '@/types/expense';
 import { ExpenseRepository } from '@/services/db/expense-repository';
 import { ComparisonEngine } from '@/services/analytics/comparison-engine';
 import { ComparisonCard } from '@/components/expense/comparison-card';
-import { formatRupiah, formatTanggalIndo } from '@/utils/currency';
+import { formatRupiah, formatTanggalIndo, parseIndoNumber } from '@/utils/currency';
 
 export default function ExpenseDetailScreen() {
   const theme = useTheme();
@@ -162,7 +162,7 @@ export default function ExpenseDetailScreen() {
                   </View>
                   <Text variant="titleMedium" style={{ fontWeight: '700' }}>
                     {item.field_type === 'currency'
-                      ? formatRupiah(parseFloat(item.field_value) || 0)
+                      ? formatRupiah(parseIndoNumber(item.field_value))
                       : `${item.field_value}${item.unit ? ' ' + item.unit : ''}`}
                   </Text>
                 </View>

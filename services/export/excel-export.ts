@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { ExpenseWithDetails } from '@/types/expense';
-import { formatTanggalIndo } from '@/utils/currency';
+import { formatRupiah, parseIndoNumber } from '@/utils/currency';
 
 export class ExcelExportService {
   /**
@@ -28,7 +28,13 @@ export class ExcelExportService {
     const dataRows = expenses.map((exp, index) => {
       // Gabungkan rincian custom fields menjadi 1 string yang rapi
       const itemsDetailStr = exp.items
-        .map((it) => `${it.field_name}: ${it.field_value}${it.unit ? ' ' + it.unit : ''}`)
+        .map((it) => {
+          const valStr =
+            it.field_type === 'currency'
+              ? formatRupiah(parseIndoNumber(it.field_value))
+              : `${it.field_value}${it.unit ? ' ' + it.unit : ''}`;
+          return `${it.field_name}: ${valStr}`;
+        })
         .join(' | ');
 
       return [

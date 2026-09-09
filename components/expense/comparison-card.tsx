@@ -1,8 +1,8 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Card, Text, Chip, useTheme, Divider } from 'react-native-paper';
+import { Card, Text, Chip, useTheme } from 'react-native-paper';
 import { ExpenseComparison } from '@/types/expense';
-import { formatRupiah, formatTanggalIndo } from '@/utils/currency';
+import { formatRupiah, formatTanggalIndo, parseIndoNumber } from '@/utils/currency';
 
 interface ComparisonCardProps {
   comparison: ExpenseComparison;
@@ -106,7 +106,7 @@ export function ComparisonCard({ comparison }: ComparisonCardProps) {
               const formatVal = (val: string | null) => {
                 if (!val) return '-';
                 if (fc.field_type === 'currency') {
-                  return formatRupiah(parseFloat(val) || 0);
+                  return formatRupiah(parseIndoNumber(val));
                 }
                 return `${val}${fc.unit ? ' ' + fc.unit : ''}`;
               };

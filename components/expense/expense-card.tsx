@@ -1,9 +1,9 @@
 import React from 'react';
-import { StyleSheet, View, TouchableOpacity } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Card, Text, Avatar, Chip, useTheme } from 'react-native-paper';
 import { router } from 'expo-router';
 import { ExpenseWithDetails } from '@/types/expense';
-import { formatRupiah, formatTanggalIndo } from '@/utils/currency';
+import { formatRupiah, formatTanggalIndo, parseIndoNumber } from '@/utils/currency';
 
 interface ExpenseCardProps {
   expense: ExpenseWithDetails;
@@ -67,7 +67,7 @@ export function ExpenseCard({ expense }: ExpenseCardProps) {
               <Chip key={item.id} compact style={styles.itemChip} textStyle={styles.itemChipText}>
                 {item.field_name}:{' '}
                 {item.field_type === 'currency'
-                  ? formatRupiah(parseFloat(item.field_value) || 0)
+                  ? formatRupiah(parseIndoNumber(item.field_value))
                   : `${item.field_value}${item.unit ? ' ' + item.unit : ''}`}
               </Chip>
             ))}
