@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, ScrollView } from 'react-native';
 import {
   Card,
   TextInput,
@@ -23,9 +23,14 @@ export type CustomFieldDraft = Omit<ExpenseCustomField, 'id' | 'expense_id'>;
 interface CustomFieldInputListProps {
   fields: CustomFieldDraft[];
   onChangeFields: (fields: CustomFieldDraft[]) => void;
+  totalAmount?: string;
 }
 
-export function CustomFieldInputList({ fields, onChangeFields }: CustomFieldInputListProps) {
+export function CustomFieldInputList({
+  fields,
+  onChangeFields,
+  totalAmount,
+}: CustomFieldInputListProps) {
   const theme = useTheme();
 
   function handleAddField() {
@@ -116,6 +121,25 @@ export function CustomFieldInputList({ fields, onChangeFields }: CustomFieldInpu
     handleUpdateField(index, 'field_value', finalVal);
   }
 
+  function handleInsertReference(index: number, insertValue: string) {
+    const field = fields[index];
+    if (!field) return;
+
+    const current = (field.field_value || '').trim();
+
+    let nextVal = '';
+    if (!current) {
+      nextVal = insertValue;
+    } else if (/[+\-*xX×/:\u00F7(]$/.test(current)) {
+      nextVal = current + insertValue;
+    } else {
+      // Jika belum ada operator di akhir, gantikan nilainya
+      nextVal = insertValue;
+    }
+
+    handleFieldValueChange(index, nextVal);
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -152,6 +176,52 @@ export function CustomFieldInputList({ fields, onChangeFields }: CustomFieldInpu
           const fieldArithmeticResult = isFieldArithmetic
             ? evaluateArithmeticExpression(field.field_value)
             : null;
+
+          // 1. Kumpulkan referensi nilai yang tersedia (Total utama & rincian lainnya)
+          const availableRefs: { id: string; label: string; value: string }[] = [];
+          const totalNum = parseIndoNumber(totalAmount || '');
+          if (totalNum > 0) {
+            availableRefs.push({
+              id: 'total',
+              label: `Total: ${formatThousand(totalNum)}`,
+              value: formatThousand(totalNum),
+            });
+          }
+
+          fields.forEach((otherF, otherIdx) => {
+            if (otherIdx === index || otherF.field_type === 'text') return;
+            const otherVal = (otherF.field_value || '').trim();
+            if (!otherVal) return;
+
+            const evaluated =
+              evaluateArithmeticExpression(otherVal) ?? parseIndoNumber(otherVal);
+            if (evaluated !== null && !isNaN(evaluated) && evaluated !== 0) {
+              const title = otherF.field_name.trim() || `Item #${otherIdx + 1}`;
+              const formattedVal =
+                otherF.field_type === 'currency'
+                  ? formatThousand(evaluated)
+                  : String(evaluated);
+              availableRefs.push({
+                id: `field-${otherIdx}`,
+                label: `${title}: ${formattedVal}`,
+                value: formattedVal,
+              });
+            }
+          });
+
+          // 2. Hitung sisa saldo dari Total (Auto-Balance) khusus untuk field bertipe currency
+          let remainingBalance: number | null = null;
+          if (totalNum > 0 && field.field_type === 'currency') {
+            const sumOtherCurrency = fields
+              .filter((f, idx) => idx !== index && f.field_type === 'currency')
+              .reduce((acc, f) => {
+                const val =
+                  evaluateArithmeticExpression(f.field_value) ??
+                  parseIndoNumber(f.field_value);
+                return acc + (isNaN(val) ? 0 : val);
+              }, 0);
+            remainingBalance = totalNum - sumOtherCurrency;
+          }
 
           return (
             <Card key={index} mode="outlined" style={styles.card}>
@@ -258,6 +328,82 @@ export function CustomFieldInputList({ fields, onChangeFields }: CustomFieldInpu
                         <Text style={styles.calcBtnEqualText}>= Hitung</Text>
                       </TouchableOpacity>
                     )}
+                  </View>
+                )}
+
+                {/* Sisipkan Referensi Nilai dari Total / Rincian Lain */}
+                {field.field_type !== 'text' && availableRefs.length > 0 && (
+                  <View style={styles.refRow}>
+                    <Text
+                      variant="labelSmall"
+                      style={[styles.refLabel, { color: theme.dark ? '#94A3B8' : '#475569' }]}>
+                      Sisipkan:
+                    </Text>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      nestedScrollEnabled={true}
+                      contentContainerStyle={styles.refScroll}>
+                      {availableRefs.map((ref) => (
+                        <TouchableOpacity
+                          key={ref.id}
+                          activeOpacity={0.7}
+                          style={[
+                            styles.refChip,
+                            {
+                              backgroundColor: theme.dark ? '#1E293B' : '#EFF6FF',
+                              borderColor: theme.dark ? '#334155' : '#BFDBFE',
+                            },
+                          ]}
+                          onPress={() => handleInsertReference(index, ref.value)}>
+                          <Text
+                            style={[
+                              styles.refChipText,
+                              { color: theme.dark ? '#38BDF8' : '#0284C7' },
+                            ]}>
+                            {ref.label}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
+
+                {/* Tombol Cepat: Isi Sisa Total (Auto-Balance) khusus tipe Currency */}
+                {field.field_type === 'currency' && remainingBalance !== null && (
+                  <View style={styles.balanceContainer}>
+                    {parseIndoNumber(field.field_value) !== remainingBalance && remainingBalance > 0 ? (
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        style={[
+                          styles.autoBalanceBtn,
+                          {
+                            backgroundColor: theme.dark ? '#064E3B' : '#ECFDF5',
+                            borderColor: theme.dark ? '#059669' : '#A7F3D0',
+                          },
+                        ]}
+                        onPress={() =>
+                          handleUpdateField(index, 'field_value', formatThousand(remainingBalance!))
+                        }>
+                        <Text
+                          style={[
+                            styles.autoBalanceText,
+                            { color: theme.dark ? '#6EE7B7' : '#047857' },
+                          ]}>
+                          ⚡ Isi Sisa Total: {formatRupiah(remainingBalance)}
+                        </Text>
+                      </TouchableOpacity>
+                    ) : parseIndoNumber(field.field_value) === remainingBalance && remainingBalance > 0 ? (
+                      <View style={styles.balancedBadge}>
+                        <Text style={styles.balancedText}>
+                          ✓ Pas dengan sisa Total ({formatRupiah(remainingBalance)})
+                        </Text>
+                      </View>
+                    ) : remainingBalance < 0 ? (
+                      <Text style={styles.overBalanceText}>
+                        ⚠️ Melebihi Total sebesar {formatRupiah(Math.abs(remainingBalance))}
+                      </Text>
+                    ) : null}
                   </View>
                 )}
 
@@ -396,5 +542,60 @@ const styles = StyleSheet.create({
   mathPreviewText: {
     color: '#2E7D32',
     fontWeight: '700',
+  },
+  refRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 3,
+    marginBottom: 4,
+  },
+  refLabel: {
+    fontWeight: '700',
+    marginRight: 2,
+  },
+  refScroll: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 2,
+  },
+  refChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  refChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  balanceContainer: {
+    marginVertical: 3,
+  },
+  autoBalanceBtn: {
+    borderWidth: 1.5,
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    alignSelf: 'flex-start',
+  },
+  autoBalanceText: {
+    fontWeight: '700',
+    fontSize: 12.5,
+  },
+  balancedBadge: {
+    paddingVertical: 2,
+    paddingHorizontal: 2,
+  },
+  balancedText: {
+    color: '#16A34A',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  overBalanceText: {
+    color: '#DC2626',
+    fontWeight: '700',
+    fontSize: 12,
   },
 });

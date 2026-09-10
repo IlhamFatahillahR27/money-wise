@@ -380,7 +380,11 @@ export function ExpenseForm({ initialExpense, onSuccess }: ExpenseFormProps) {
         />
 
         {/* Dynamic Custom Fields */}
-        <CustomFieldInputList fields={fields} onChangeFields={setFields} />
+        <CustomFieldInputList
+          fields={fields}
+          onChangeFields={setFields}
+          totalAmount={totalAmount}
+        />
 
         {/* Catatan Tambahan */}
         <TextInput
