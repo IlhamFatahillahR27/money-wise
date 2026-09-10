@@ -5,6 +5,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  TouchableOpacity,
 } from 'react-native';
 import {
   TextInput,
@@ -25,6 +26,12 @@ import {
   terbilangSingkat,
   formatRupiah,
 } from '@/utils/currency';
+import {
+  evaluateArithmeticExpression,
+  hasArithmeticOperator,
+  sanitizeArithmeticInput,
+  formatCalculationResult,
+} from '@/utils/calculator';
 
 interface ExpenseFormProps {
   initialExpense?: ExpenseWithDetails;
@@ -112,6 +119,52 @@ export function ExpenseForm({ initialExpense, onSuccess }: ExpenseFormProps) {
     setTotalAmount(formatThousand(sum));
   }
 
+  function handleTotalAmountChange(val: string) {
+    const clean = sanitizeArithmeticInput(val);
+
+    // Jika user mengetik '=', langsung evaluasi hasil sekarang
+    if (clean.includes('=')) {
+      const expr = clean.replace(/=/g, '');
+      const evaluated = evaluateArithmeticExpression(expr);
+      if (evaluated !== null && evaluated >= 0) {
+        setTotalAmount(formatThousand(evaluated));
+        return;
+      }
+    }
+
+    if (hasArithmeticOperator(clean)) {
+      setTotalAmount(clean);
+    } else {
+      setTotalAmount(formatThousand(clean));
+    }
+  }
+
+  function handleTotalAmountBlur() {
+    if (hasArithmeticOperator(totalAmount)) {
+      const evaluated = evaluateArithmeticExpression(totalAmount);
+      if (evaluated !== null && evaluated >= 0) {
+        setTotalAmount(formatThousand(evaluated));
+      }
+    }
+  }
+
+  function handleAppendTotalOperator(op: string) {
+    const current = totalAmount.trim();
+    if (!current) return;
+    if (/[+\-*xX×/:\u00F7]$/.test(current)) {
+      setTotalAmount(current.slice(0, -1) + op);
+    } else {
+      setTotalAmount(current + op);
+    }
+  }
+
+  function handleApplyTotalArithmetic() {
+    const evaluated = evaluateArithmeticExpression(totalAmount);
+    if (evaluated !== null && evaluated >= 0) {
+      setTotalAmount(formatThousand(evaluated));
+    }
+  }
+
   async function handleSubmit() {
     if (!title.trim()) {
       setErrorMsg('Judul pengeluaran wajib diisi.');
@@ -122,7 +175,20 @@ export function ExpenseForm({ initialExpense, onSuccess }: ExpenseFormProps) {
       return;
     }
 
-    const amountNum = parseIndoNumber(totalAmount);
+    // Evaluasi jika kolom total masih memuat ekspresi aritmatika
+    let finalTotalStr = totalAmount;
+    if (hasArithmeticOperator(finalTotalStr)) {
+      const evaluated = evaluateArithmeticExpression(finalTotalStr);
+      if (evaluated !== null && evaluated > 0) {
+        finalTotalStr = evaluated.toString();
+        setTotalAmount(formatThousand(evaluated));
+      } else {
+        setErrorMsg('Perhitungan pada total nominal belum selesai atau tidak valid.');
+        return;
+      }
+    }
+
+    const amountNum = parseIndoNumber(finalTotalStr);
     if (isNaN(amountNum) || amountNum <= 0) {
       setErrorMsg('Total nominal pengeluaran harus lebih dari 0.');
       return;
@@ -135,8 +201,22 @@ export function ExpenseForm({ initialExpense, onSuccess }: ExpenseFormProps) {
     try {
       setIsSubmitting(true);
 
+      // Evaluasi rincian custom fields jika masih ada ekspresi matematika yang belum terhitung
+      const evaluatedFields = fields.map((f) => {
+        if (f.field_type !== 'text' && hasArithmeticOperator(f.field_value)) {
+          const evaluated = evaluateArithmeticExpression(f.field_value);
+          if (evaluated !== null) {
+            return {
+              ...f,
+              field_value: formatCalculationResult(evaluated, f.field_type),
+            };
+          }
+        }
+        return f;
+      });
+
       // Bersihkan fields yang memiliki nama kosong
-      const validFields = fields.filter((f) => f.field_name.trim().length > 0);
+      const validFields = evaluatedFields.filter((f) => f.field_name.trim().length > 0);
 
       await ExpenseRepository.createExpense(
         {
@@ -162,6 +242,8 @@ export function ExpenseForm({ initialExpense, onSuccess }: ExpenseFormProps) {
     }
   }
 
+  const isArithmetic = hasArithmeticOperator(totalAmount);
+  const arithmeticResult = isArithmetic ? evaluateArithmeticExpression(totalAmount) : null;
   const parsedTotalAmount = parseIndoNumber(totalAmount);
 
   return (
@@ -215,10 +297,12 @@ export function ExpenseForm({ initialExpense, onSuccess }: ExpenseFormProps) {
         <View style={styles.amountContainer}>
           <TextInput
             label="Total Nominal Pengeluaran (Rp) *"
-            placeholder="0"
+            placeholder="0 atau e.g. 1000*59"
             value={totalAmount}
-            onChangeText={(val) => setTotalAmount(formatThousand(val))}
-            keyboardType="numeric"
+            onChangeText={handleTotalAmountChange}
+            onBlur={handleTotalAmountBlur}
+            onSubmitEditing={handleTotalAmountBlur}
+            keyboardType="default"
             left={<TextInput.Affix text="Rp " />}
             mode="outlined"
             style={[styles.input, { flex: 1 }]}
@@ -234,8 +318,52 @@ export function ExpenseForm({ initialExpense, onSuccess }: ExpenseFormProps) {
           )}
         </View>
 
-        {/* Helper teks terbilang rupiah untuk konfirmasi jumlah nol */}
-        {parsedTotalAmount > 0 && (
+        {/* Quick Operator Bar untuk input Total */}
+        <View style={styles.operatorRow}>
+          <Text variant="labelSmall" style={[styles.operatorLabel, { color: theme.dark ? '#94A3B8' : '#475569' }]}>
+            Kalkulator:
+          </Text>
+          {['+', '-', '*', '/'].map((op) => {
+            const displayLabel = op === '*' ? '×' : op === '/' ? '÷' : op;
+            return (
+              <TouchableOpacity
+                key={op}
+                activeOpacity={0.7}
+                style={[
+                  styles.calcBtn,
+                  {
+                    backgroundColor: theme.dark ? '#334155' : '#E2E8F0',
+                    borderColor: theme.dark ? '#475569' : '#CBD5E1',
+                  },
+                ]}
+                onPress={() => handleAppendTotalOperator(op)}>
+                <Text style={[styles.calcBtnText, { color: theme.dark ? '#F8FAFC' : '#0F172A' }]}>
+                  {displayLabel}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+          {arithmeticResult !== null && (
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={[styles.calcBtnEqual, { backgroundColor: theme.colors.primary }]}
+              onPress={handleApplyTotalArithmetic}>
+              <Text style={styles.calcBtnEqualText}>= Hitung</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Live Preview Hasil Kalkulasi jika sedang mengetik operasi aritmatika */}
+        {isArithmetic && arithmeticResult !== null && (
+          <TouchableOpacity onPress={handleApplyTotalArithmetic} style={styles.mathPreviewBadge}>
+            <Text variant="bodySmall" style={styles.mathPreviewText}>
+              💡 Hasil Hitung: {formatRupiah(arithmeticResult)} ({terbilangSingkat(arithmeticResult)}) — Ketuk untuk terapkan
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Helper teks terbilang rupiah jika bukan ekspresi matematika aktif */}
+        {!isArithmetic && parsedTotalAmount > 0 && (
           <Text variant="bodySmall" style={styles.amountHelper}>
             💰 Terbaca: {formatRupiah(parsedTotalAmount)} ({terbilangSingkat(parsedTotalAmount)})
           </Text>
@@ -325,5 +453,57 @@ const styles = StyleSheet.create({
   },
   submitButtonContent: {
     paddingVertical: 6,
+  },
+  operatorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 8,
+    marginTop: 2,
+  },
+  operatorLabel: {
+    fontWeight: '700',
+    marginRight: 2,
+  },
+  calcBtn: {
+    minWidth: 38,
+    height: 34,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  calcBtnText: {
+    fontSize: 18,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  calcBtnEqual: {
+    height: 34,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  calcBtnEqualText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  mathPreviewBadge: {
+    backgroundColor: '#E8F5E9',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#A5D6A7',
+  },
+  mathPreviewText: {
+    color: '#2E7D32',
+    fontWeight: '700',
   },
 });
